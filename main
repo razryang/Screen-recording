@@ -1,0 +1,72 @@
+import os
+import time
+from datetime import datetime
+from PIL import ImageGrab, ImageDraw
+import numpy as np
+import cv2
+import pygetwindow as gw
+import pyautogui as pag
+
+# 创建视频文件夹位置 你不创我替你创
+VIDEO_FILE_PATH = r'D:\screen_recording'
+# 最大留存视频量
+MAX_FILES_COUNT = 10
+# FPS最好15左右 调太高了容易给视频加速 不知道为啥
+FPS = 15
+
+
+def record_mouse(img, mouse_x, mouse_y):
+    w, h = img.size
+    draw = ImageDraw.Draw(img)
+    if mouse_x < w and mouse_y < h:
+        draw.ellipse((mouse_x - 10, mouse_y - 10, mouse_x + 10, mouse_y + 10), fill = 200)
+    return img
+
+
+def record_video(window_title):
+    window = gw.getWindowsWithTitle(window_title)[0]
+    # window.restore()
+    window.maximize()
+    # window.activate()
+    file_name = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+    print(f'正在录制：{file_name}')
+    # 坑爹 这全屏以后屏幕左上角坐标是(-8,-8) 不是 0，0
+    left, top, width, height = window.left + 8, window.top + 8, window.width, window.height + 23
+    # print(left, top, width, height)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video = cv2.VideoWriter(f'{VIDEO_FILE_PATH}\\{file_name}.mp4', fourcc, FPS, (width, height))
+    start_time = time.time()
+    while time.time() - start_time <= 60:
+        mouse_x, mouse_y = pag.position()
+        img_base = ImageGrab.grab(bbox = (left, top, left + width, top + height))
+        capture_image = record_mouse(img_base, mouse_x, mouse_y)
+        frame = cv2.cvtColor(np.array(capture_image), cv2.COLOR_RGB2BGR)
+        video.write(frame)
+    video.release()
+    print(f'视频{file_name}.mp4录制完毕')
+    print('\n')
+
+
+def delete_files():
+    files = os.listdir(VIDEO_FILE_PATH)
+    if len(files) >= MAX_FILES_COUNT:
+        for i in files[:len(files) - MAX_FILES_COUNT]:
+            print('删除文件：' + i)
+            os.remove(f'{VIDEO_FILE_PATH}\\{i}')
+
+
+def main():
+    if os.path.exists(VIDEO_FILE_PATH):
+        print('文件夹' + VIDEO_FILE_PATH + '已存在')
+    else:
+        os.mkdir(VIDEO_FILE_PATH)
+    while True:
+        delete_files()
+        record_video('unity')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('手动停止录屏')
